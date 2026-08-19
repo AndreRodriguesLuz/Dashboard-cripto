@@ -1,76 +1,133 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Financeiro</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Chart.js para renderizar os gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CryptoDash</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Força os estilos escuros para evitar override de cache */
+    select, input, button {
+      background-color: #0f172a !important;
+      color: #ffffff !important;
+      border: 1px solid #334155 !important;
+      outline: none !important;
+      border-radius: 6px !important;
+    }
+    select option {
+      background-color: #0f172a !important;
+      color: #ffffff !important;
+    }
+    .top-header {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      width: 100% !important;
+      margin-bottom: 24px !important;
+    }
+    .calculator-inputs {
+      display: flex !important;
+      align-items: center !important;
+      gap: 16px !important;
+      flex-wrap: wrap !important;
+    }
+    .input-group {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+    }
+  </style>
 </head>
-<body>
-    <div class="dashboard-container">
-        <!-- Sidebar Navigation -->
-        <aside class="sidebar">
-            <div class="logo">
-                <h2>⚡ CryptoDash</h2>
+<body style="background-color: #0b1120; color: #f8fafc; margin: 0; font-family: sans-serif;">
+  <div class="dashboard-container" style="display: flex; min-height: 100vh;">
+    
+    <aside class="sidebar" style="width: 240px; background-color: #0f172a; border-right: 1px solid #1e293b; padding: 24px 16px;">
+      <h2 class="logo" style="color: #ffffff; margin-bottom: 24px;">CryptoDash</h2>
+      <ul class="sidebar-nav" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px;">
+        <li class="active" style="padding: 10px; border-radius: 8px; background: #1e293b; color: #38bdf8; cursor: pointer;">Visão Geral</li>
+        <li style="padding: 10px; color: #94a3b8; cursor: pointer;">Criptos</li>
+        <li style="padding: 10px; color: #94a3b8; cursor: pointer;">Ações</li>
+        
+        <li id="settings-menu-item" class="settings-item" style="margin-top: 16px;">
+          <div class="settings-title" style="color: #cbd5e1; font-weight: 600; margin-bottom: 8px;">Configurações</div>
+          <div class="settings-control" style="display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 13px;">
+            <label for="currency-select-sidebar">Moeda:</label>
+            <select id="currency-select-sidebar" class="custom-select" style="padding: 6px 10px;">
+              <option value="usd">USD ($)</option>
+              <option value="brl">BRL (R$)</option>
+            </select>
+          </div>
+        </li>
+      </ul>
+    </aside>
+
+    <main class="main-content" style="flex: 1; padding: 24px;">
+      
+      <!-- Cabeçalho ajustado para alinhar o botão à direita -->
+      <header class="top-header">
+        <h1 style="margin: 0; font-size: 28px;">Painel financeiro</h1>
+        <button id="open-modal-btn" class="btn-primary" style="padding: 8px 16px; cursor: pointer; font-weight: 600; background-color: #1e293b !important;">+ Adicionar Ativo</button>
+      </header>
+
+      <section id="cards-grid" class="cards-grid"></section>
+
+      <section class="chart-section" style="background-color: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+        <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 style="margin: 0;">Histórico do Ativo</h2>
+          <div class="time-filters" style="display: flex; gap: 8px;">
+            <button class="time-btn active" data-days="1" style="padding: 6px 12px; cursor: pointer;">24h</button>
+            <button class="time-btn" data-days="7" style="padding: 6px 12px; cursor: pointer;">7D</button>
+            <button class="time-btn" data-days="30" style="padding: 6px 12px; cursor: pointer;">30D</button>
+          </div>
+        </div>
+        <div class="chart-container" style="height: 300px; position: relative;">
+          <canvas id="marketChart"></canvas>
+        </div>
+      </section>
+
+      <!-- Simulador de Carteira com os campos formatados em linha e fundo escuro -->
+      <section class="portfolio-calculator" style="background-color: #1e293b; padding: 20px; border-radius: 12px;">
+        <h2 style="margin: 0 0 16px 0;">Simulador de Carteira</h2>
+        <div class="calculator-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          
+          <div class="calculator-inputs">
+            <div class="input-group">
+              <label for="asset-select" style="color: #94a3b8; font-size: 14px;">Ativo:</label>
+              <select id="asset-select" class="custom-select" style="padding: 8px 12px;"></select>
             </div>
-            <nav class="nav-menu">
-                <a href="#" class="active">📊 Visão Geral</a>
-                <a href="#">🪙 Criptos</a>
-                <a href="#">📈 Ações</a>
-                <a href="#">⚙️ Configurações</a>
-            </nav>
-        </aside>
+            
+            <div class="input-group">
+              <label for="asset-amount" style="color: #94a3b8; font-size: 14px;">Quantidade:</label>
+              <input type="number" id="asset-amount" placeholder="Ex: 0.5" step="any" min="0" class="custom-input" style="padding: 8px 12px; width: 100px;">
+            </div>
+            
+            <button id="update-portfolio-btn" class="btn-calc" style="background-color: #10b981 !important; color: #ffffff !important; border: none !important; padding: 8px 16px; font-weight: 600; cursor: pointer;">Calcular Saldo</button>
+          </div>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <header class="top-header">
-                <h1>Painel do Mercado</h1>
-                <div class="status-badge"><span class="dot"></span> Mercado Aberto</div>
-            </header>
+          <div class="calculator-result" style="display: flex; align-items: center; gap: 8px; font-weight: 700;">
+            <span style="color: #94a3b8;">Valor Total Estimado:</span>
+            <span id="portfolio-total" style="color: #38bdf8; font-size: 18px;">R$ 0,00</span>
+          </div>
 
-            <!-- Cards de Resumo -->
-            <section class="cards-grid">
-                <div class="card">
-                    <span class="asset-title">Bitcoin (BTC)</span>
-                    <h3 class="asset-price" id="btc-price">$ 64,250.00</h3>
-                    <span class="asset-change positive" id="btc-change">+3.45%</span>
-                </div>
-                <div class="card">
-                    <span class="asset-title">Ethereum (ETH)</span>
-                    <h3 class="asset-price" id="eth-price">$ 3,480.00</h3>
-                    <span class="asset-change positive" id="eth-change">+1.82%</span>
-                </div>
-                <div class="card">
-                    <span class="asset-title">Apple (AAPL)</span>
-                    <h3 class="asset-price" id="aapl-price">$ 224.10</h3>
-                    <span class="asset-change negative" id="aapl-change">-0.65%</span>
-                </div>
-                <div class="card">
-                    <span class="asset-title">NVIDIA (NVDA)</span>
-                    <h3 class="asset-price" id="nvda-price">$ 128.50</h3>
-                    <span class="asset-change positive" id="nvda-change">+4.12%</span>
-                </div>
-            </section>
+        </div>
+      </section>
 
-            <!-- Seção do Gráfico Main -->
-            <section class="chart-section">
-                <div class="chart-header">
-                    <h2>Desempenho Geral</h2>
-                    <div class="chart-actions">
-                        <button class="time-btn active">24h</button>
-                        <button class="time-btn">7D</button>
-                        <button class="time-btn">1M</button>
-                    </div>
-                </div>
-                <div class="chart-container">
-                    <canvas id="mainChart"></canvas>
-                </div>
-            </section>
-        </main>
+    </main>
+  </div>
+
+  <div id="asset-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: #1e293b; padding: 24px; border-radius: 12px; width: 400px; position: relative;">
+      <span id="close-modal" class="close-btn" style="position: absolute; top: 12px; right: 16px; cursor: pointer; font-size: 20px;">&times;</span>
+      <h2>Adicionar Novo Ativo</h2>
+      <div class="search-box" style="display: flex; gap: 8px; margin-top: 16px;">
+        <input type="text" id="search-input" placeholder="Ex: bitcoin, ethereum..." class="custom-input" style="flex: 1; padding: 8px 12px;">
+        <button id="search-btn" class="btn-primary" style="padding: 8px 16px;">Buscar</button>
+      </div>
+      <div id="search-results" class="search-results" style="margin-top: 16px;"></div>
     </div>
+  </div>
 
-    <script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
