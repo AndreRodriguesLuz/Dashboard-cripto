@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financeiro</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js para renderizar os gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>⚡ CryptoDash</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="active">📊 Visão Geral</a>
+                <a href="#">🪙 Criptos</a>
+                <a href="#">📈 Ações</a>
+                <a href="#">⚙️ Configurações</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <h1>Painel do Mercado</h1>
+                <div class="status-badge"><span class="dot"></span> Mercado Aberto</div>
+            </header>
+
+            <!-- Cards de Resumo -->
+            <section class="cards-grid">
+                <div class="card">
+                    <span class="asset-title">Bitcoin (BTC)</span>
+                    <h3 class="asset-price" id="btc-price">$ 64,250.00</h3>
+                    <span class="asset-change positive" id="btc-change">+3.45%</span>
+                </div>
+                <div class="card">
+                    <span class="asset-title">Ethereum (ETH)</span>
+                    <h3 class="asset-price" id="eth-price">$ 3,480.00</h3>
+                    <span class="asset-change positive" id="eth-change">+1.82%</span>
+                </div>
+                <div class="card">
+                    <span class="asset-title">Apple (AAPL)</span>
+                    <h3 class="asset-price" id="aapl-price">$ 224.10</h3>
+                    <span class="asset-change negative" id="aapl-change">-0.65%</span>
+                </div>
+                <div class="card">
+                    <span class="asset-title">NVIDIA (NVDA)</span>
+                    <h3 class="asset-price" id="nvda-price">$ 128.50</h3>
+                    <span class="asset-change positive" id="nvda-change">+4.12%</span>
+                </div>
+            </section>
+
+            <!-- Seção do Gráfico Main -->
+            <section class="chart-section">
+                <div class="chart-header">
+                    <h2>Desempenho Geral</h2>
+                    <div class="chart-actions">
+                        <button class="time-btn active">24h</button>
+                        <button class="time-btn">7D</button>
+                        <button class="time-btn">1M</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
