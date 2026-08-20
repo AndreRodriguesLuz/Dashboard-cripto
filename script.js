@@ -23,18 +23,24 @@ let priceCache = { data: {} };
 let chartCache = {}; 
 let isSearching = false;
 
-// Mock inicial base
+const FALLBACK_USD_BRL = 5.5;
+
+// Mock inicial com preços base fixos e isolados por moeda
 const mockPrices = {
-  'bitcoin': { usd: 65000, brl: 350000, usd_24h_change: 2.5, brl_24h_change: 2.5 },
-  'solana': { usd: 140, brl: 750, usd_24h_change: 4.8, brl_24h_change: 4.8 },
-  'dogecoin': { usd: 0.12, brl: 0.65, usd_24h_change: 1.2, brl_24h_change: 1.2 },
-  'tesla-xstock': { usd: 220, brl: 1200, usd_24h_change: -0.5, brl_24h_change: -0.5 },
-  'shiba-inu': { usd: 0.000018, brl: 0.000095, usd_24h_change: 0.9, brl_24h_change: 0.9 },
-  'avalanche-2': { usd: 25, brl: 135, usd_24h_change: 1.1, brl_24h_change: 1.1 },
-  'cardano': { usd: 0.35, brl: 1.90, usd_24h_change: 0.4, brl_24h_change: 0.4 },
-  'apple-xstock': { usd: 225, brl: 1230, usd_24h_change: 0.8, brl_24h_change: 0.8 },
-  'nvidia-xstock': { usd: 128, brl: 700, usd_24h_change: 1.5, brl_24h_change: 1.5 },
-  'microsoft-ondo-tokenized-stock': { usd: 440, brl: 2400, usd_24h_change: 0.3, brl_24h_change: 0.3 }
+  'bitcoin': { usd: 65000, brl: 357500, usd_24h_change: 2.5, brl_24h_change: 2.5 },
+  'ethereum': { usd: 2300, brl: 12650, usd_24h_change: 1.8, brl_24h_change: 1.8 },
+  'solana': { usd: 140, brl: 770, usd_24h_change: 4.8, brl_24h_change: 4.8 },
+  'dogecoin': { usd: 0.12, brl: 0.66, usd_24h_change: 1.2, brl_24h_change: 1.2 },
+  'tesla-xstock': { usd: 220, brl: 1210, usd_24h_change: -0.5, brl_24h_change: -0.5 },
+  'shiba-inu': { usd: 0.000018, brl: 0.000099, usd_24h_change: 0.9, brl_24h_change: 0.9 },
+  'avalanche-2': { usd: 25, brl: 137.5, usd_24h_change: 1.1, brl_24h_change: 1.1 },
+  'cardano': { usd: 0.35, brl: 1.92, usd_24h_change: 0.4, brl_24h_change: 0.4 },
+  'apple-xstock': { usd: 225, brl: 1237.5, usd_24h_change: 0.8, brl_24h_change: 0.8 },
+  'nvidia-xstock': { usd: 128, brl: 704, usd_24h_change: 1.5, brl_24h_change: 1.5 },
+  'microsoft-ondo-tokenized-stock': { usd: 440, brl: 2420, usd_24h_change: 0.3, brl_24h_change: 0.3 },
+  'netflix-xstock': { usd: 680, brl: 3740, usd_24h_change: 1.2, brl_24h_change: 1.2 },
+  'amazon-xstock': { usd: 180, brl: 990, usd_24h_change: -0.2, brl_24h_change: -0.2 },
+  'alphabet-xstock': { usd: 165, brl: 907.5, usd_24h_change: 0.6, brl_24h_change: 0.6 }
 };
 
 const fallbackCoins = [
@@ -45,7 +51,13 @@ const fallbackCoins = [
   { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', type: 'crypto' },
   { id: 'avalanche-2', name: 'Avalanche', symbol: 'AVAX', type: 'crypto' },
   { id: 'shiba-inu', name: 'Shiba Inu', symbol: 'SHIB', type: 'crypto' },
-  { id: 'tesla-xstock', name: 'Tesla Stock Token', symbol: 'TSLA', type: 'stock' }
+  { id: 'tesla-xstock', name: 'Tesla Stock Token', symbol: 'TSLA', type: 'stock' },
+  { id: 'apple-xstock', name: 'Apple Stock Token', symbol: 'AAPL', type: 'stock' },
+  { id: 'nvidia-xstock', name: 'NVIDIA Stock Token', symbol: 'NVDA', type: 'stock' },
+  { id: 'microsoft-ondo-tokenized-stock', name: 'Microsoft Stock Token', symbol: 'MSFT', type: 'stock' },
+  { id: 'netflix-xstock', name: 'Netflix Stock Token', symbol: 'NFLX', type: 'stock' },
+  { id: 'amazon-xstock', name: 'Amazon Stock Token', symbol: 'AMZN', type: 'stock' },
+  { id: 'alphabet-xstock', name: 'Google (Alphabet) Token', symbol: 'GOOGL', type: 'stock' }
 ];
 
 // Elementos do DOM
@@ -112,22 +124,34 @@ function populateAssetSelect() {
   assetSelect.value = selectedAssetForChart;
 }
 
-// Gera um preço realista padrão caso o ativo novo não esteja na API nem no mock
+// Retorna dados isolados por moeda sem corromper o cache local
 function getFallbackAssetData(coinId) {
   if (mockPrices[coinId]) {
-    return mockPrices[coinId];
+    const base = mockPrices[coinId];
+    return {
+      usd: base.usd,
+      brl: base.brl || base.usd * FALLBACK_USD_BRL,
+      usd_24h_change: base.usd_24h_change || 0,
+      brl_24h_change: base.brl_24h_change || 0
+    };
   }
 
   let baseUsd = 100;
-  if (coinId.includes('stock')) baseUsd = 180;
-  else if (coinId.includes('token') || coinId.includes('ondo')) baseUsd = 250;
+  if (coinId.includes('bitcoin')) baseUsd = 65000;
+  else if (coinId.includes('ethereum')) baseUsd = 2300;
+  else if (coinId.includes('solana')) baseUsd = 140;
+  else if (coinId.includes('netflix')) baseUsd = 680;
+  else if (coinId.includes('microsoft')) baseUsd = 440;
+  else if (coinId.includes('apple')) baseUsd = 225;
+  else if (coinId.includes('nvidia')) baseUsd = 128;
+  else if (coinId.includes('amazon')) baseUsd = 180;
+  else if (coinId.includes('alphabet') || coinId.includes('google')) baseUsd = 165;
 
-  const rate = 5.5; 
   return {
     usd: baseUsd,
-    brl: baseUsd * rate,
-    usd_24h_change: 0.5,
-    brl_24h_change: 0.5
+    brl: baseUsd * FALLBACK_USD_BRL,
+    usd_24h_change: 1.5,
+    brl_24h_change: 1.5
   };
 }
 
@@ -144,6 +168,7 @@ async function loadMarketData() {
     
     if (res.status === 429) {
       renderCards(priceCache.data);
+      updatePortfolioTotal(priceCache.data);
       updateChartData();
       return;
     }
@@ -157,6 +182,7 @@ async function loadMarketData() {
   } catch (err) {
     console.error('Erro ao carregar dados:', err);
     renderCards(priceCache.data);
+    updatePortfolioTotal(priceCache.data);
     updateChartData();
   }
 }
@@ -461,6 +487,15 @@ async function performSearch() {
     } else {
       const data = await res.json();
       coinsToRender = (data.coins || []).slice(0, 5);
+      
+      // Se a API externa não trouxer resultados, recorre à lista estendida
+      if (coinsToRender.length === 0) {
+        coinsToRender = fallbackCoins.filter(c => 
+          c.name.toLowerCase().includes(query) || 
+          c.symbol.toLowerCase().includes(query) || 
+          c.id.toLowerCase().includes(query)
+        );
+      }
     }
 
     if (coinsToRender.length === 0) {
@@ -548,11 +583,11 @@ function updatePortfolioTotal(marketPrices) {
   const locale = preferredCurrency === 'brl' ? 'pt-BR' : 'en-US';
 
   let info = marketPrices ? marketPrices[selectedCoin] : null;
-  if (!info || info[preferredCurrency] === undefined) {
+  if (!info || info[preferredCurrency] === undefined || info[preferredCurrency] === 0) {
     info = getFallbackAssetData(selectedCoin);
   }
 
   const price = info[preferredCurrency] || 0;
   const total = price * amount;
-  portfolioTotal.textContent = `${symbol} ${total.toLocaleString(locale, { minimumFractionDigits: 2 })}`;
+  portfolioTotal.textContent = `${symbol} ${total.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
