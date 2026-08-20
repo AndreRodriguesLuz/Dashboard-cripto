@@ -29,6 +29,7 @@ const FALLBACK_USD_BRL = 5.5;
 const mockPrices = {
   'bitcoin': { usd: 65000, brl: 357500, usd_24h_change: 2.5, brl_24h_change: 2.5 },
   'ethereum': { usd: 2300, brl: 12650, usd_24h_change: 1.8, brl_24h_change: 1.8 },
+  'binancecoin': { usd: 580, brl: 3190, usd_24h_change: 1.5, brl_24h_change: 1.5 },
   'solana': { usd: 140, brl: 770, usd_24h_change: 4.8, brl_24h_change: 4.8 },
   'dogecoin': { usd: 0.12, brl: 0.66, usd_24h_change: 1.2, brl_24h_change: 1.2 },
   'tesla-xstock': { usd: 220, brl: 1210, usd_24h_change: -0.5, brl_24h_change: -0.5 },
@@ -47,6 +48,7 @@ const fallbackCoins = [
   { id: 'cardano', name: 'Cardano', symbol: 'ADA', type: 'crypto' },
   { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', type: 'crypto' },
   { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', type: 'crypto' },
+  { id: 'binancecoin', name: 'BNB / Binance Coin', symbol: 'BNB', type: 'crypto' },
   { id: 'solana', name: 'Solana', symbol: 'SOL', type: 'crypto' },
   { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', type: 'crypto' },
   { id: 'avalanche-2', name: 'Avalanche', symbol: 'AVAX', type: 'crypto' },
@@ -139,6 +141,7 @@ function getFallbackAssetData(coinId) {
   let baseUsd = 100;
   if (coinId.includes('bitcoin')) baseUsd = 65000;
   else if (coinId.includes('ethereum')) baseUsd = 2300;
+  else if (coinId.includes('binancecoin') || coinId.includes('bnb')) baseUsd = 580;
   else if (coinId.includes('solana')) baseUsd = 140;
   else if (coinId.includes('netflix')) baseUsd = 680;
   else if (coinId.includes('microsoft')) baseUsd = 440;
@@ -488,7 +491,6 @@ async function performSearch() {
       const data = await res.json();
       coinsToRender = (data.coins || []).slice(0, 5);
       
-      // Se a API externa não trouxer resultados, recorre à lista estendida
       if (coinsToRender.length === 0) {
         coinsToRender = fallbackCoins.filter(c => 
           c.name.toLowerCase().includes(query) || 
