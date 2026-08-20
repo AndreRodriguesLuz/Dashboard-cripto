@@ -19,36 +19,19 @@ let currentDays = 1;
 let preferredCurrency = 'brl'; 
 let currentCategory = 'all'; 
 
-let priceCache = { data: {} };
+let priceCache = { data: JSON.parse(localStorage.getItem('lastKnownPrices')) || {} };
 let chartCache = {}; 
 let isSearching = false;
 
 const FALLBACK_USD_BRL = 5.5;
 
-// Mock inicial com preços base fixos e isolados por moeda
-const mockPrices = {
-  'bitcoin': { usd: 65000, brl: 357500, usd_24h_change: 2.5, brl_24h_change: 2.5 },
-  'ethereum': { usd: 2300, brl: 12650, usd_24h_change: 1.8, brl_24h_change: 1.8 },
-  'binancecoin': { usd: 580, brl: 3190, usd_24h_change: 1.5, brl_24h_change: 1.5 },
-  'solana': { usd: 140, brl: 770, usd_24h_change: 4.8, brl_24h_change: 4.8 },
-  'dogecoin': { usd: 0.12, brl: 0.66, usd_24h_change: 1.2, brl_24h_change: 1.2 },
-  'tesla-xstock': { usd: 220, brl: 1210, usd_24h_change: -0.5, brl_24h_change: -0.5 },
-  'shiba-inu': { usd: 0.000018, brl: 0.000099, usd_24h_change: 0.9, brl_24h_change: 0.9 },
-  'avalanche-2': { usd: 25, brl: 137.5, usd_24h_change: 1.1, brl_24h_change: 1.1 },
-  'cardano': { usd: 0.35, brl: 1.92, usd_24h_change: 0.4, brl_24h_change: 0.4 },
-  'apple-xstock': { usd: 225, brl: 1237.5, usd_24h_change: 0.8, brl_24h_change: 0.8 },
-  'nvidia-xstock': { usd: 128, brl: 704, usd_24h_change: 1.5, brl_24h_change: 1.5 },
-  'microsoft-ondo-tokenized-stock': { usd: 440, brl: 2420, usd_24h_change: 0.3, brl_24h_change: 0.3 },
-  'netflix-xstock': { usd: 680, brl: 3740, usd_24h_change: 1.2, brl_24h_change: 1.2 },
-  'amazon-xstock': { usd: 180, brl: 990, usd_24h_change: -0.2, brl_24h_change: -0.2 },
-  'alphabet-xstock': { usd: 165, brl: 907.5, usd_24h_change: 0.6, brl_24h_change: 0.6 }
-};
-
+// Ativos de exemplo para a busca off-line/backup do modal
 const fallbackCoins = [
   { id: 'cardano', name: 'Cardano', symbol: 'ADA', type: 'crypto' },
   { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', type: 'crypto' },
   { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', type: 'crypto' },
   { id: 'binancecoin', name: 'BNB / Binance Coin', symbol: 'BNB', type: 'crypto' },
+  { id: 'sui', name: 'Sui', symbol: 'SUI', type: 'crypto' },
   { id: 'solana', name: 'Solana', symbol: 'SOL', type: 'crypto' },
   { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', type: 'crypto' },
   { id: 'avalanche-2', name: 'Avalanche', symbol: 'AVAX', type: 'crypto' },
@@ -126,36 +109,48 @@ function populateAssetSelect() {
   assetSelect.value = selectedAssetForChart;
 }
 
-// Retorna dados isolados por moeda sem corromper o cache local
-function getFallbackAssetData(coinId) {
-  if (mockPrices[coinId]) {
-    const base = mockPrices[coinId];
-    return {
-      usd: base.usd,
-      brl: base.brl || base.usd * FALLBACK_USD_BRL,
-      usd_24h_change: base.usd_24h_change || 0,
-      brl_24h_change: base.brl_24h_change || 0
-    };
+// Tenta buscar o preço em uma API secundária (CoinCap) dinamicamente caso a principal falhe
+async function fetchSingleAssetFallback(coinId) {
+  let cleanId = coinId.toLowerCase().replace('-xstock', '').replace('-ondo-tokenized-stock', '');
+  if (cleanId === 'avalanche-2') cleanId = 'avalanche';
+  if (cleanId === 'binancecoin') cleanId = 'binance-coin';
+
+  try {
+    const res = await fetch(`https://api.coincap.io/v2/assets/${cleanId}`);
+    if (res.ok) {
+      const result = await res.json();
+      if (result && result.data) {
+        const priceUsd = parseFloat(result.data.priceUsd) || 0;
+        const changePercent = parseFloat(result.data.changePercent24Hr) || 0;
+        return {
+          usd: priceUsd,
+          brl: priceUsd * FALLBACK_USD_BRL,
+          usd_24h_change: changePercent,
+          brl_24h_change: changePercent
+        };
+      }
+    }
+  } catch (e) {
+    console.warn(`Fallback CoinCap falhou para ${coinId}:`, e);
   }
 
-  let baseUsd = 100;
-  if (coinId.includes('bitcoin')) baseUsd = 65000;
-  else if (coinId.includes('ethereum')) baseUsd = 2300;
-  else if (coinId.includes('binancecoin') || coinId.includes('bnb')) baseUsd = 580;
-  else if (coinId.includes('solana')) baseUsd = 140;
-  else if (coinId.includes('netflix')) baseUsd = 680;
-  else if (coinId.includes('microsoft')) baseUsd = 440;
-  else if (coinId.includes('apple')) baseUsd = 225;
-  else if (coinId.includes('nvidia')) baseUsd = 128;
-  else if (coinId.includes('amazon')) baseUsd = 180;
-  else if (coinId.includes('alphabet') || coinId.includes('google')) baseUsd = 165;
+  // Tenta usar o último preço real salvo no navegador
+  const savedPrices = JSON.parse(localStorage.getItem('lastKnownPrices')) || {};
+  if (savedPrices[coinId] && savedPrices[coinId][preferredCurrency]) {
+    return savedPrices[coinId];
+  }
 
   return {
-    usd: baseUsd,
-    brl: baseUsd * FALLBACK_USD_BRL,
-    usd_24h_change: 1.5,
-    brl_24h_change: 1.5
+    usd: 0,
+    brl: 0,
+    usd_24h_change: 0,
+    brl_24h_change: 0
   };
+}
+
+async function getFallbackAssetData(coinId) {
+  const data = await fetchSingleAssetFallback(coinId);
+  return data;
 }
 
 async function loadMarketData() {
@@ -169,28 +164,48 @@ async function loadMarketData() {
   try {
     const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=${preferredCurrency}&include_24hr_change=true`);
     
-    if (res.status === 429) {
-      renderCards(priceCache.data);
+    if (res.ok) {
+      const data = await res.json();
+      
+      // Atualiza o cache local com os novos preços coletados
+      priceCache.data = { ...priceCache.data, ...data };
+      localStorage.setItem('lastKnownPrices', JSON.stringify(priceCache.data));
+
+      await renderCards(priceCache.data);
       updatePortfolioTotal(priceCache.data);
       updateChartData();
       return;
     }
 
-    const data = await res.json();
-    priceCache.data = data;
+    // Se deu erro 429 ou outro problema na API principal, busca automaticamente os faltantes
+    await handleFallbackForMissingAssets();
 
-    renderCards(data);
-    updatePortfolioTotal(data);
-    updateChartData();
   } catch (err) {
-    console.error('Erro ao carregar dados:', err);
-    renderCards(priceCache.data);
-    updatePortfolioTotal(priceCache.data);
-    updateChartData();
+    console.error('Erro ao carregar dados da API principal:', err);
+    await handleFallbackForMissingAssets();
   }
 }
 
-function renderCards(marketData) {
+async function handleFallbackForMissingAssets() {
+  const currentData = priceCache.data || {};
+  
+  for (const asset of trackedAssets) {
+    const coinId = getAssetId(asset);
+    if (!currentData[coinId] || !currentData[coinId][preferredCurrency]) {
+      const fallbackData = await getFallbackAssetData(coinId);
+      currentData[coinId] = fallbackData;
+    }
+  }
+
+  priceCache.data = currentData;
+  localStorage.setItem('lastKnownPrices', JSON.stringify(currentData));
+
+  await renderCards(priceCache.data);
+  updatePortfolioTotal(priceCache.data);
+  updateChartData();
+}
+
+async function renderCards(marketData) {
   if (!cardsGrid) return;
   cardsGrid.innerHTML = '';
 
@@ -208,19 +223,20 @@ function renderCards(marketData) {
     return;
   }
 
-  filteredAssets.forEach(asset => {
+  for (const asset of filteredAssets) {
     const coinId = getAssetId(asset);
     
     let info = marketData ? marketData[coinId] : null;
     if (!info || info[preferredCurrency] === undefined || info[preferredCurrency] === 0) {
-      info = getFallbackAssetData(coinId);
+      info = await getFallbackAssetData(coinId);
     }
     
     const rawPrice = info && info[preferredCurrency] !== undefined ? info[preferredCurrency] : 0;
     const priceFormatted = `${symbol} ${rawPrice.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     
     const changeKey = `${preferredCurrency}_24h_change`;
-    const change = info && info[changeKey] !== undefined ? info[changeKey].toFixed(2) : '0.00';
+    const changeVal = info && info[changeKey] !== undefined ? info[changeKey] : 0;
+    const change = changeVal.toFixed(2);
     const isPositive = parseFloat(change) >= 0;
 
     const card = document.createElement('div');
@@ -256,7 +272,7 @@ function renderCards(marketData) {
     };
 
     cardsGrid.appendChild(card);
-  });
+  }
 }
 
 function removeAsset(coinId, cardElement) {
@@ -313,13 +329,13 @@ async function updateChartData() {
     const res = await fetch(`https://api.coingecko.com/api/v3/coins/${selectedAssetForChart}/market_chart?vs_currency=${preferredCurrency}&days=${currentDays}`);
     
     if (res.status === 429) {
-      renderMockChart();
+      await renderMockChart();
       return;
     }
 
     const data = await res.json();
     if (!data || !data.prices) {
-      renderMockChart();
+      await renderMockChart();
       return;
     }
 
@@ -328,14 +344,14 @@ async function updateChartData() {
 
   } catch (err) {
     console.error('Erro no gráfico:', err);
-    renderMockChart();
+    await renderMockChart();
   }
 }
 
-function renderMockChart() {
+async function renderMockChart() {
   const now = Date.now();
   const mockPoints = [];
-  const assetInfo = getFallbackAssetData(selectedAssetForChart);
+  const assetInfo = await getFallbackAssetData(selectedAssetForChart);
   const basePrice = assetInfo[preferredCurrency] || 100;
 
   for (let i = 20; i >= 0; i--) {
@@ -522,7 +538,6 @@ async function performSearch() {
           trackedAssets.push({ id: coinId, type: isStock ? 'stock' : 'crypto' });
           localStorage.setItem('trackedAssetsObjects', JSON.stringify(trackedAssets));
           
-          priceCache = { data: {} };
           selectedAssetForChart = coinId;
           
           populateAssetSelect();
@@ -558,7 +573,6 @@ async function performSearch() {
           if (!exists) {
             trackedAssets.push({ id: coin.id, type: coin.type });
             localStorage.setItem('trackedAssetsObjects', JSON.stringify(trackedAssets));
-            priceCache = { data: {} };
             selectedAssetForChart = coin.id;
             populateAssetSelect();
             loadMarketData();
@@ -576,7 +590,7 @@ async function performSearch() {
   }
 }
 
-function updatePortfolioTotal(marketPrices) {
+async function updatePortfolioTotal(marketPrices) {
   if (!portfolioTotal || !assetSelect || !assetAmountInput) return;
 
   const selectedCoin = assetSelect.value;
@@ -586,7 +600,7 @@ function updatePortfolioTotal(marketPrices) {
 
   let info = marketPrices ? marketPrices[selectedCoin] : null;
   if (!info || info[preferredCurrency] === undefined || info[preferredCurrency] === 0) {
-    info = getFallbackAssetData(selectedCoin);
+    info = await getFallbackAssetData(selectedCoin);
   }
 
   const price = info[preferredCurrency] || 0;
